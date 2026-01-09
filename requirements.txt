@@ -1,4 +1,6 @@
 streamlit
 fpdf
 qrcode
+
 pillow
+st-gsheets-connection
