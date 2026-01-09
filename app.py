@@ -8,7 +8,7 @@ import pandas as pd
 
 # --- CONFIGURATION GOOGLE SHEETS ---
 # Remplace l'URL ci-dessous par le lien que tu as copié à l'étape 1
-URL_SHEET = "TON_LIEN_COPIE_ICI"
+URL_SHEET = "https://docs.google.com/spreadsheets/d/1bErvQg4-f2Fga6nRJO8aKYdEOjcC6HMzXa2T7zJLeE0/edit?usp=sharing"
 
 # --- CATALOGUE ---
 CATALOGUE = {
@@ -87,3 +87,4 @@ if st.button("🚀 VALIDER ET GÉNÉRER LA FACTURE"):
             st.error(f"Erreur : {e}")
     else:
         st.warning("Remplis le nom et le téléphone !")
+
