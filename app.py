@@ -232,7 +232,12 @@ for idx, (nom_produit, infos) in enumerate(produits_catalogue.items()):
             st.info(f"📷 Photo à venir")
         
         st.markdown(f"**{infos['description']}**")
-        st.markdown(f"### 💰 {infos['prix']} DA")
+        
+        # Affichage spécial pour "La Fleur de la Nuit"
+        if nom_produit == "La Fleur de la Nuit":
+            st.markdown("### 💝 *Mon amour pour toi est inestimable*")
+        else:
+            st.markdown(f"### 💰 {infos['prix']} DA")
 
 st.markdown("---")
 
@@ -268,7 +273,12 @@ with col_img:
 
 with col_info:
     st.markdown(f"**Produit :** {produit_selectionne}")
-    st.markdown(f"**Prix :** {produits_catalogue[produit_selectionne]['prix']} DA")
+    
+    # Affichage spécial du prix pour "La Fleur de la Nuit"
+    if produit_selectionne == "La Fleur de la Nuit":
+        st.markdown(f"**Prix :** 💝 *Mon amour pour toi est inestimable* (3500 DA)")
+    else:
+        st.markdown(f"**Prix :** {produits_catalogue[produit_selectionne]['prix']} DA")
     
     # Tarifs
     frais_livraison = {"Alger": 500, "Oran": 800, "Sétif": 600, "Autre": 1000}
