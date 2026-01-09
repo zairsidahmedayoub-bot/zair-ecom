@@ -3,12 +3,7 @@ from fpdf import FPDF
 import qrcode
 import os
 from datetime import date
-from streamlit_gsheets import GSheetsConnection
 import pandas as pd
-
-# --- CONFIGURATION GOOGLE SHEETS ---
-# Remplace l'URL ci-dessous par le lien que tu as copié à l'étape 1
-URL_SHEET = "https://docs.google.com/spreadsheets/d/1bErvQg4-f2Fga6nRJO8aKYdEOjcC6HMzXa2T7zJLeE0/edit?usp=sharing"
 
 # --- CATALOGUE ---
 CATALOGUE = {
@@ -25,66 +20,42 @@ frais_wilaya = {"Alger": 500, "Oran": 800, "Sétif": 600, "Autre": 1000}
 st.title("💸 ZAIR SQUAR & 🛒 ZAIR E-COM")
 st.subheader("mrhba bik 3nd sidou")
 
-# --- SECTION COMMANDE ---
-st.header("Générateur de Bon de Commande")
-col1, col2 = st.columns(2)
-with col1:
-    nom_client = st.text_input("Nom complet du client :")
-    telephone = st.text_input("Numéro de téléphone :")
-with col2:
-    wilaya = st.selectbox("Wilaya de livraison :", list(frais_wilaya.keys()))
-    adresse = st.text_area("Adresse exacte :")
-
+# --- FORMULAIRE ---
+nom_client = st.text_input("Nom complet du client :")
+telephone = st.text_input("Numéro de téléphone :")
+wilaya = st.selectbox("Wilaya de livraison :", list(frais_wilaya.keys()))
 produit_nom = st.selectbox("Choisir l'article :", list(CATALOGUE.keys()))
-prix_u = CATALOGUE[produit_nom]["prix"]
 quantite = st.number_input("Quantité :", min_value=1, value=1)
-total_final = (prix_u * quantite) + frais_wilaya[wilaya]
+total_final = (CATALOGUE[produit_nom]["prix"] * quantite) + frais_wilaya[wilaya]
 
 if st.button("🚀 VALIDER ET GÉNÉRER LA FACTURE"):
     if nom_client and telephone:
-        try:
-            # 1. ENREGISTREMENT DANS GOOGLE SHEETS
-            conn = st.connection("gsheets", type=GSheetsConnection)
+        # --- ENREGISTREMENT LOCAL (Pour le test) ---
+        # Comme Google bloque l'écriture directe sans clé secrète, 
+        # on affiche les données pour confirmer la réception.
+        st.toast(f"Commande reçue pour {nom_client} !", icon='✅')
+        
+        # --- GÉNÉRATION DU PDF ---
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Helvetica", 'B', 16)
+        pdf.cell(190, 10, "FACTURE ZAIR E-COM", ln=True, align='C')
+        pdf.ln(10)
+        pdf.set_font("Helvetica", '', 12)
+        pdf.cell(100, 10, f"Client: {nom_client}")
+        pdf.ln(10)
+        pdf.cell(100, 10, f"Produit: {produit_nom} (x{quantite})")
+        pdf.ln(10)
+        pdf.cell(100, 10, f"Total: {total_final} DA")
+        pdf.ln(20)
+        pdf.cell(190, 10, "mrhba bik 3nd sidou", align='C')
+        
+        pdf_file = "facture.pdf"
+        pdf.output(pdf_file)
+        with open(pdf_file, "rb") as f:
+            st.download_button("📥 Télécharger la Facture PDF", f, file_name=f"Facture_{nom_client}.pdf")
             
-            # Création de la ligne de données
-            nouvelle_ligne = pd.DataFrame([{
-                "Date": str(date.today()),
-                "nom": nom_client,
-                "téléphone": telephone,
-                "wilaya": wilaya,
-                "produit": produit_nom,
-                "total": f"{total_final} DA"
-            }])
-            
-            # Lecture des données existantes et ajout
-            existing_data = conn.read(spreadsheet=URL_SHEET)
-            updated_data = pd.concat([existing_data, nouvelle_ligne], ignore_index=True)
-            conn.update(spreadsheet=URL_SHEET, data=updated_data)
-            
-            st.success("✅ Commande enregistrée dans la base de données !")
-
-            # 2. GÉNÉRATION DU PDF (Ton code habituel)
-            pdf = FPDF()
-            pdf.add_page()
-            pdf.set_font("Helvetica", 'B', 16)
-            pdf.cell(190, 10, "FACTURE ZAIR E-COM", ln=True, align='C')
-            pdf.ln(10)
-            pdf.set_font("Helvetica", '', 12)
-            pdf.cell(100, 10, f"Client: {nom_client}")
-            pdf.ln(10)
-            pdf.cell(100, 10, f"Produit: {produit_nom} (x{quantite})")
-            pdf.ln(10)
-            pdf.cell(100, 10, f"Total: {total_final} DA")
-            pdf.ln(20)
-            pdf.cell(190, 10, "mrhba bik 3nd sidou", align='C')
-            
-            pdf_file = "facture.pdf"
-            pdf.output(pdf_file)
-            with open(pdf_file, "rb") as f:
-                st.download_button("📥 Télécharger le PDF", f, file_name=f"Facture_{nom_client}.pdf")
-
-        except Exception as e:
-            st.error(f"Erreur : {e}")
+        # Affiche un récapitulatif pour toi (le vendeur)
+        st.info(f"RÉCAP : {nom_client} | {telephone} | {wilaya} | {total_final} DA")
     else:
         st.warning("Remplis le nom et le téléphone !")
-
