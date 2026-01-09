@@ -4,48 +4,83 @@ from streamlit_gsheets import GSheetsConnection
 from datetime import date
 from fpdf import FPDF
 
-# --- CONFIGURATION ---
-# On met le lien directement ici pour ne plus dépendre de la boîte "Secrets"
+# --- CONFIGURATION DIRECTE ---
+# On utilise ton lien ici pour ne plus avoir besoin de la boîte "Secrets"
 URL_SHEET = "https://docs.google.com/spreadsheets/d/1bErvQg4-f2Fga6nRJO8aKYdEOjcC6HMzXa2T7zJLeE0"
 
-st.set_page_config(page_title="ZAIR E-COM", layout="wide")
+st.set_page_config(page_title="ZAIR SQUAR & E-COM", layout="wide")
 
-# Connexion forcée avec le lien direct
+# Initialisation de la connexion
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 st.title("💸 ZAIR SQUAR & 🛒 ZAIR E-COM")
+st.markdown("### mrhba bik 3nd sidou")
 
-# --- FORMULAIRE ---
-nom = st.text_input("Nom complet :")
-tel = st.text_input("Téléphone :")
-wilaya = st.selectbox("Wilaya :", ["Alger", "Oran", "Sétif", "Autre"])
-produit = st.selectbox("Article :", ["Basket Puma", "Adidas Square", "TN Squale"])
-total_da = 6300 
+# --- PARTIE 1 : CONVERTISSEUR ---
+st.header("1. Convertisseur Square")
+taux = 240
+montant_euro = st.number_input("Montant en Euro (€) :", min_value=0, value=10)
+st.metric("Résultat en DZA", f"{montant_euro * taux:.2f} DA")
 
+st.divider()
+
+# --- PARTIE 2 : COMMANDE ---
+st.header("2. Passer une Commande")
+
+col1, col2 = st.columns(2)
+with col1:
+    nom_client = st.text_input("Nom complet :")
+    tel_client = st.text_input("Téléphone :")
+with col2:
+    wilaya = st.selectbox("Wilaya :", ["Alger", "Oran", "Sétif", "Autre"])
+    produit = st.selectbox("Article :", ["Basket Puma", "Adidas Square", "TN Squale"])
+
+prix_articles = {"Basket Puma": 5500, "Adidas Square": 8500, "TN Squale": 12000}
+frais_livraison = {"Alger": 500, "Oran": 800, "Sétif": 600, "Autre": 1000}
+
+total = prix_articles[produit] + frais_livraison[wilaya]
+st.write(f"### Total à payer : {total} DA")
+
+# --- BOUTON D'ENREGISTREMENT ---
 if st.button("🚀 VALIDER ET ENREGISTRER"):
-    if nom and tel:
+    if nom_client and tel_client:
         try:
-            # On force l'utilisation du lien ici aussi
-            df_new = pd.DataFrame([{
+            # 1. Création de la nouvelle ligne
+            nouvelle_ligne = pd.DataFrame([{
                 "Date": str(date.today()),
-                "nom": nom,
-                "téléphone": tel,
+                "nom": nom_client,
+                "téléphone": tel_client,
                 "wilaya": wilaya,
                 "produit": produit,
-                "total": f"{total_da} DA"
+                "total": f"{total} DA"
             }])
 
-            # Lecture et mise à jour en utilisant le lien direct
-            existing_data = conn.read(spreadsheet=URL_SHEET)
-            updated_data = pd.concat([existing_data, df_new], ignore_index=True)
+            # 2. Lecture des données actuelles via le lien direct
+            df_actuel = conn.read(spreadsheet=URL_SHEET)
             
-            # Tentative de mise à jour directe
-            conn.update(spreadsheet=URL_SHEET, data=updated_data)
+            # 3. Fusion et Mise à jour
+            df_final = pd.concat([df_actuel, nouvelle_ligne], ignore_index=True)
+            conn.update(spreadsheet=URL_SHEET, data=df_final)
             
-            st.success(f"✅ Commande enregistrée pour {nom} !")
+            st.success(f"✅ Commande de {nom_client} enregistrée avec succès !")
             
+            # 4. Petit PDF de confirmation
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font("Arial", 'B', 16)
+            pdf.cell(190, 10, "BON DE COMMANDE - ZAIR E-COM", ln=True, align='C')
+            pdf.ln(10)
+            pdf.set_font("Arial", '', 12)
+            pdf.cell(0, 10, f"Client: {nom_client}", ln=True)
+            pdf.cell(0, 10, f"Produit: {produit}", ln=True)
+            pdf.cell(0, 10, f"Total: {total} DA", ln=True)
+            
+            pdf_name = f"commande_{nom_client}.pdf"
+            pdf.output(pdf_name)
+            with open(pdf_name, "rb") as f:
+                st.download_button("📥 Télécharger le Bon (PDF)", f, file_name=pdf_name)
+
         except Exception as e:
-            st.error(f"Erreur : {e}")
-            st.info("Note : Si l'erreur persiste, vérifie que le partage est bien sur 'Tous les utilisateurs disposant du lien : EDITEUR' sur Google Sheets.")
+            st.error(f"Erreur lors de l'enregistrement : {e}")
     else:
-        st.warning("Remplis le nom et le tel !")
+        st.warning("⚠️ Remplis le nom et le téléphone avant de valider.")
