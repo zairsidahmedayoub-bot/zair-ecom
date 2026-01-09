@@ -137,7 +137,7 @@ def create_invoice_pdf(nom, tel, wilaya, produit, total, num_commande):
         "Basket Puma": 5500, 
         "Adidas Square": 8500, 
         "TN Squale": 12000,
-        "La Fleur de la Nuit": 3500
+        "La Fleur de la Nuit": 99999999
     }
     frais_livraison = {"Alger": 500, "Oran": 800, "Sétif": 600, "Autre": 1000}
     
@@ -206,7 +206,7 @@ produits_catalogue = {
         "emoji": "👟"
     },
     "La Fleur de la Nuit": {
-        "prix": 3500,
+        "prix": 99999999,
         "image": "fleur.jfif",
         "description": "Parfum La Fleur de la Nuit",
         "emoji": "🌸"
@@ -276,7 +276,7 @@ with col_info:
     
     # Affichage spécial du prix pour "La Fleur de la Nuit"
     if produit_selectionne == "La Fleur de la Nuit":
-        st.markdown(f"**Prix :** 💝 *Mon amour pour toi est inestimable* (3500 DA)")
+        st.markdown(f"**Prix :** 💝 *Mon amour pour toi est inestimable* (99 999 999 DA)")
     else:
         st.markdown(f"**Prix :** {produits_catalogue[produit_selectionne]['prix']} DA")
     
@@ -287,7 +287,12 @@ with col_info:
     st.markdown(f"**Frais de livraison ({wilaya}) :** {frais} DA")
     
     total = produits_catalogue[produit_selectionne]['prix'] + frais
-    st.markdown(f"### 💳 **Total à payer : {total} DA**")
+    
+    # Affichage spécial du total pour "La Fleur de la Nuit"
+    if produit_selectionne == "La Fleur de la Nuit":
+        st.markdown(f"### 💳 **Total à payer : {total:,} DA** 💎")
+    else:
+        st.markdown(f"### 💳 **Total à payer : {total} DA**")
 
 # --- BOUTON D'ENREGISTREMENT ---
 st.markdown("---")
