@@ -1,6 +1,8 @@
 streamlit
+pandas
+gspread
+google-auth
 fpdf
 qrcode
-
 pillow
-st-gsheets-connection
+streamlit-gsheets
