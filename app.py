@@ -6,62 +6,61 @@ from datetime import date
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 
-# Configuration du catalogue
+# --- 1. CONFIGURATION ---
 CATALOGUE = {
     "Basket Puma": {"prix": 5500, "image": "puma.jpg"},
     "Adidas Square": {"prix": 8500, "image": "adidas.jpg"},
     "TN Squale": {"prix": 12000, "image": "tn.jpg"}
 }
 
+frais_wilaya = {"Alger": 500, "Oran": 800, "Sétif": 600, "Autre": 1000}
+NUMERO_MAGASIN = "0782473413"
+LIEN_TIKTOK = "https://www.tiktok.com/@zair.product?_r=1&_t=ZS-92t8mhY25UC"
+
 st.set_page_config(page_title="ZAIR SQUAR & E-COM", layout="wide")
 
-# Initialisation de la connexion Google Sheets
+# Initialisation de la connexion Google Sheets (utilise les Secrets configurés)
 conn = st.connection("gsheets", type=GSheetsConnection)
 
+# --- INTERFACE ---
 st.title("💸 ZAIR SQUAR & 🛒 ZAIR E-COM")
 st.subheader("mrhba bik 3nd sidou")
 
-# Formulaire client
-nom_client = st.text_input("Nom complet du client :")
-telephone = st.text_input("Numéro de téléphone :")
-wilaya = st.selectbox("Wilaya de livraison :", ["Alger", "Oran", "Sétif", "Autre"])
+# Section 1 : Convertisseur
+st.header("1. Convertisseur Square")
+taux = 240
+option_conv = st.selectbox('Sens :', ('DZA vers Euro (€)', 'Euro (€) vers DZA'))
+montant_init = 1000 if option_conv == 'DZA vers Euro (€)' else 10
+montant = st.number_input("Montant :", min_value=0, value=montant_init)
+
+if option_conv == 'DZA vers Euro (€)':
+    st.metric("Résultat", f"{montant / taux:.2f} €")
+else:
+    st.metric("Résultat", f"{montant * taux:.2f} DA")
+
+st.divider()
+
+# Section 2 : Commande
+st.header("2. Générateur de Bon de Commande")
+
+col1, col2 = st.columns(2)
+with col1:
+    nom_client = st.text_input("Nom complet du client :")
+    telephone = st.text_input("Numéro de téléphone :")
+with col2:
+    wilaya = st.selectbox("Wilaya de livraison :", list(frais_wilaya.keys()))
+    adresse = st.text_area("Adresse exacte :")
+
+st.subheader("🛍️ Sélection du Produit")
 produit_nom = st.selectbox("Choisir l'article :", list(CATALOGUE.keys()))
 quantite = st.number_input("Quantité :", min_value=1, value=1)
 
-frais = {"Alger": 500, "Oran": 800, "Sétif": 600, "Autre": 1000}
-total_final = (CATALOGUE[produit_nom]["prix"] * quantite) + frais[wilaya]
+total_final = (CATALOGUE[produit_nom]["prix"] * quantite) + frais_wilaya[wilaya]
+st.write(f"### Total à payer : {total_final} DA")
 
-if st.button("🚀 VALIDER ET ENREGISTRER"):
+# --- BOUTON FINAL : ENREGISTREMENT ET PDF ---
+if st.button("🚀 VALIDER ET ENREGISTRER LA COMMANDE"):
     if nom_client and telephone:
         try:
-            # 1. Préparation des données
-            nouvelle_donnee = pd.DataFrame([{
-                "Date": str(date.today()),
-                "nom": nom_client,
-                "téléphone": telephone,
-                "wilaya": wilaya,
-                "produit": produit_nom,
-                "total": f"{total_final} DA"
-            }])
-
-            # 2. Lecture et mise à jour (La magie opère ici)
-            existing_data = conn.read()
-            updated_data = pd.concat([existing_data, nouvelle_donnee], ignore_index=True)
-            conn.update(data=updated_data)
-            
-            st.success(f"✅ Commande enregistrée pour {nom_client} !")
-            
-            # 3. Génération du PDF (ton code habituel)
-            pdf = FPDF()
-            pdf.add_page()
-            pdf.set_font("Helvetica", 'B', 16)
-            pdf.cell(190, 10, "FACTURE ZAIR E-COM", ln=True, align='C')
-            pdf.output("facture.pdf")
-            with open("facture.pdf", "rb") as f:
-                st.download_button("📥 Télécharger la Facture", f, file_name=f"Facture_{nom_client}.pdf")
-
-        except Exception as e:
-            st.error(f"Erreur de connexion : {e}")
-            st.info("Note : Assure-toi que l'accès au Sheets est 'Éditeur' pour tout le monde.")
-    else:
-        st.warning("Veuillez remplir tous les champs.")
+            # A. Enregistrement Google Sheets
+            nouvelle_commande =
