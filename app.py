@@ -19,7 +19,7 @@ LIEN_TIKTOK = "https://www.tiktok.com/@zair.product?_r=1&_t=ZS-92t8mhY25UC"
 
 st.set_page_config(page_title="ZAIR SQUAR & E-COM", layout="wide")
 
-# Initialisation de la connexion Google Sheets (utilise les Secrets configurés)
+# Connexion Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 # --- INTERFACE ---
@@ -63,4 +63,47 @@ if st.button("🚀 VALIDER ET ENREGISTRER LA COMMANDE"):
     if nom_client and telephone:
         try:
             # A. Enregistrement Google Sheets
-            nouvelle_commande =
+            nouvelle_commande = pd.DataFrame([{
+                "Date": str(date.today()),
+                "nom": nom_client,
+                "téléphone": telephone,
+                "wilaya": wilaya,
+                "produit": produit_nom,
+                "total": f"{total_final} DA"
+            }])
+
+            # Lecture des données existantes
+            data_actuelle = conn.read()
+            # Fusion
+            data_mise_a_jour = pd.concat([data_actuelle, nouvelle_commande], ignore_index=True)
+            # Mise à jour du Sheets
+            conn.update(data=data_mise_a_jour)
+            
+            st.success(f"✅ Commande de {nom_client} enregistrée !")
+
+            # B. Génération du PDF
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font("Helvetica", 'B', 16)
+            pdf.cell(190, 10, "ZAIR SQUAR E-COM", ln=True, align='C')
+            pdf.ln(10)
+            pdf.set_font("Helvetica", '', 12)
+            pdf.cell(100, 10, f"Client: {nom_client}")
+            pdf.ln(10)
+            pdf.cell(100, 10, f"Produit: {produit_nom} (x{quantite})")
+            pdf.ln(10)
+            pdf.cell(100, 10, f"Total: {total_final} DA")
+            pdf.ln(20)
+            pdf.set_font("Helvetica", 'B', 14)
+            pdf.cell(190, 10, "mrhba bik 3nd sidou", align='C')
+            
+            pdf_file = "facture.pdf"
+            pdf.output(pdf_file)
+            
+            with open(pdf_file, "rb") as f:
+                st.download_button("📥 Télécharger la Facture PDF", f, file_name=f"Facture_{nom_client}.pdf")
+
+        except Exception as e:
+            st.error(f"Erreur : {e}")
+    else:
+        st.warning("⚠️ Remplis le nom et le téléphone !")
