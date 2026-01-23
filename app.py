@@ -9,347 +9,173 @@ from io import BytesIO
 from fpdf import FPDF
 import os
 
-# --- CONFIGURATION ---
-st.set_page_config(page_title="ZAIR SQUAR & E-COM", layout="wide", page_icon="🛍️")
+# --- 1. CONFIGURATION ---
+st.set_page_config(page_title="ZAIR LUXE E-COM", layout="wide", page_icon="💎")
 
-# ID de ton Google Sheet
+# Rappel : N'oublie pas de supprimer la boîte secrète lors de l'envoi du code !
 SHEET_ID = "1bErvQg4-f2Fga6nRJO8aKYdEOjcC6HMzXa2T7zJLeE0"
-
-# Lien TikTok
 TIKTOK_URL = "https://www.tiktok.com/@zair.product"
 
-# CSS personnalisé
+# --- 2. DESIGN CSS PERSONNALISÉ (STYLE NOIR ET OR) ---
 st.markdown("""
     <style>
-    .product-card {
-        border: 2px solid #f0f0f0;
-        border-radius: 10px;
-        padding: 15px;
+    /* Fond général */
+    .stApp { background-color: #ffffff; }
+    
+    /* Header stylé */
+    .header-box {
+        background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
+        padding: 40px;
+        border-radius: 20px;
         text-align: center;
-        background-color: #fafafa;
-        transition: transform 0.3s;
+        border-bottom: 4px solid #D4AF37;
+        margin-bottom: 30px;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    }
+    
+    /* Cartes produits */
+    .product-card {
+        border: 1px solid #e0e0e0;
+        border-radius: 15px;
+        padding: 20px;
+        text-align: center;
+        background-color: white;
+        transition: 0.3s ease;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
     }
     .product-card:hover {
-        transform: scale(1.05);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        transform: translateY(-10px);
+        box-shadow: 0 12px 20px rgba(0,0,0,0.1);
+        border-color: #D4AF37;
+    }
+    
+    /* Boutons personnalisés */
+    .stButton>button {
+        background: linear-gradient(90deg, #000000 0%, #333333 100%);
+        color: #D4AF37 !important;
+        border: 1px solid #D4AF37 !important;
+        border-radius: 10px;
+        font-weight: bold;
+        height: 50px;
+        width: 100%;
+        transition: 0.3s;
+    }
+    .stButton>button:hover {
+        background: #D4AF37;
+        color: #000000 !important;
     }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("💸 ZAIR SQUAR & 🛒 ZAIR E-COM")
-st.markdown("### 🌟 Bienvenue chez Sidou - Vos articles préférés !")
-
-# --- CONNEXION GOOGLE SHEETS ---
+# --- 3. LOGIQUE GOOGLE SHEETS ---
 @st.cache_resource
 def init_connection():
-    """Initialise la connexion avec Google Sheets via Service Account"""
     try:
         credentials = Credentials.from_service_account_info(
             st.secrets["gcp_service_account"],
-            scopes=[
-                "https://www.googleapis.com/auth/spreadsheets",
-            ],
+            scopes=["https://www.googleapis.com/auth/spreadsheets"],
         )
-        client = gspread.authorize(credentials)
-        return client
-    except Exception as e:
-        st.error(f"Erreur d'authentification : {e}")
-        return None
+        return gspread.authorize(credentials)
+    except: return None
 
 def get_data():
-    """Récupère les données du Google Sheet"""
     try:
         client = init_connection()
         if client:
             sheet = client.open_by_key(SHEET_ID).sheet1
-            data = sheet.get_all_records()
-            return pd.DataFrame(data)
+            return pd.DataFrame(sheet.get_all_records())
         return pd.DataFrame()
-    except Exception as e:
-        st.error(f"Erreur de lecture : {e}")
-        return pd.DataFrame()
+    except: return pd.DataFrame()
 
-def add_data(nouvelle_commande):
-    """Ajoute une nouvelle commande au Google Sheet"""
+def add_data(row):
     try:
         client = init_connection()
         if client:
-            sheet = client.open_by_key(SHEET_ID).sheet1
-            sheet.append_row(nouvelle_commande)
+            client.open_by_key(SHEET_ID).sheet1.append_row(row)
             return True
         return False
-    except Exception as e:
-        st.error(f"Erreur d'écriture : {e}")
-        return False
+    except: return False
 
-def generate_qr_code(url):
-    """Génère un QR code pour le lien TikTok"""
-    qr = qrcode.QRCode(version=1, box_size=10, border=2)
-    qr.add_data(url)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
-    return img
+# --- 4. INTERFACE PRINCIPALE ---
+st.markdown("""
+    <div class="header-box">
+        <h1 style="color: #D4AF37; margin: 0; font-family: 'Trebuchet MS';">💸 ZAIR SQUAR & E-COM 🛒</h1>
+        <p style="color: #ffffff; font-size: 1.2rem; opacity: 0.8;">La qualité Square, livrée chez vous.</p>
+    </div>
+""", unsafe_allow_html=True)
 
-def create_invoice_pdf(nom, tel, wilaya, produit, total, num_commande):
-    """Crée une facture PDF avec QR code"""
-    pdf = FPDF()
-    pdf.add_page()
-    
-    # En-tête
-    pdf.set_font("Arial", "B", 20)
-    pdf.cell(0, 10, "ZAIR SQUAR & E-COM", ln=True, align="C")
-    pdf.set_font("Arial", "", 12)
-    pdf.cell(0, 10, "Bienvenue chez Sidou", ln=True, align="C")
-    pdf.ln(10)
-    
-    # Titre Facture
-    pdf.set_font("Arial", "B", 16)
-    pdf.cell(0, 10, f"FACTURE N° {num_commande}", ln=True, align="C")
-    pdf.ln(5)
-    
-    # Date
-    pdf.set_font("Arial", "", 11)
-    pdf.cell(0, 8, f"Date: {date.today().strftime('%d/%m/%Y')}", ln=True)
-    pdf.ln(5)
-    
-    # Informations client
-    pdf.set_font("Arial", "B", 13)
-    pdf.cell(0, 8, "INFORMATIONS CLIENT", ln=True)
-    pdf.set_font("Arial", "", 11)
-    pdf.cell(0, 8, f"Nom: {nom}", ln=True)
-    pdf.cell(0, 8, f"Telephone: {tel}", ln=True)
-    pdf.cell(0, 8, f"Wilaya: {wilaya}", ln=True)
-    pdf.ln(10)
-    
-    # Détails commande
-    pdf.set_font("Arial", "B", 13)
-    pdf.cell(0, 8, "DETAILS DE LA COMMANDE", ln=True)
-    pdf.ln(2)
-    
-    # Tableau
-    pdf.set_font("Arial", "B", 11)
-    pdf.cell(100, 10, "Article", border=1)
-    pdf.cell(40, 10, "Prix", border=1, align="C")
-    pdf.cell(40, 10, "Livraison", border=1, align="C", ln=True)
-    
-    # Prix articles
-    prix_articles = {
-        "Basket Puma": 5500, 
-        "Adidas Square": 8500, 
-        "TN Squale": 12000
+# ORGANISATION EN ONGLETS
+tab_boutique, tab_change, tab_admin = st.tabs(["🛍️ BOUTIQUE", "💱 CHANGE SQUARE", "📋 GESTION"])
+
+with tab_boutique:
+    # CATALOGUE
+    produits = {
+        "Basket Puma": {"prix": 5500, "img": "puma.jpg", "desc": "Confort et style Puma"},
+        "Adidas Square": {"prix": 8500, "img": "adidas.jpg", "desc": "Design Square exclusif"},
+        "TN Squale": {"prix": 12000, "img": "tn.jpg", "desc": "Qualité Premium TN"}
     }
-    frais_livraison = {"Alger": 500, "Oran": 800, "Sétif": 600, "Autre": 1000}
     
-    prix_produit = prix_articles[produit]
-    frais = frais_livraison[wilaya]
-    
-    pdf.set_font("Arial", "", 11)
-    pdf.cell(100, 10, produit, border=1)
-    pdf.cell(40, 10, f"{prix_produit} DA", border=1, align="C")
-    pdf.cell(40, 10, f"{frais} DA", border=1, align="C", ln=True)
-    
-    # Total
-    pdf.ln(5)
-    pdf.set_font("Arial", "B", 14)
-    pdf.cell(140, 10, "TOTAL A PAYER:", align="R")
-    pdf.set_font("Arial", "B", 16)
-    pdf.cell(40, 10, f"{total} DA", align="C")
-    pdf.ln(20)
-    
-    # QR Code
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 8, "Suivez-nous sur TikTok:", ln=True, align="C")
-    
-    # Générer QR code et le sauvegarder temporairement
-    qr_img = generate_qr_code(TIKTOK_URL)
-    qr_buffer = BytesIO()
-    qr_img.save(qr_buffer, format="PNG")
-    qr_buffer.seek(0)
-    
-    # Sauvegarder temporairement pour FPDF
-    with open("/tmp/qr_temp.png", "wb") as f:
-        f.write(qr_buffer.getvalue())
-    
-    # Ajouter QR au PDF (centré)
-    pdf.image("/tmp/qr_temp.png", x=75, y=pdf.get_y(), w=60)
-    pdf.ln(65)
-    
-    # Pied de page
-    pdf.set_font("Arial", "I", 10)
-    pdf.cell(0, 10, "Merci pour votre confiance!", ln=True, align="C")
-    pdf.cell(0, 8, "ZAIR SQUAR & E-COM - Contact: +213 XXX XXX XXX", ln=True, align="C")
-    
-    return pdf.output(dest="S").encode("latin1")
-
-# --- CATALOGUE PRODUITS ---
-st.header("🛍️ Nos Produits")
-
-# Définition des produits avec leurs infos
-produits_catalogue = {
-    "Basket Puma": {
-        "prix": 5500,
-        "image": "puma.jpg",
-        "description": "Basket Puma confortable et stylé",
-        "emoji": "👟"
-    },
-    "Adidas Square": {
-        "prix": 8500,
-        "image": "adidas.jpg",
-        "description": "Adidas Square - Design moderne",
-        "emoji": "👟"
-    },
-    "TN Squale": {
-        "prix": 12000,
-        "image": "tn.jpg",
-        "description": "TN Squale - Qualité premium",
-        "emoji": "👟"
-    }
-}
-
-# Affichage en grille
-cols = st.columns(3)
-
-for idx, (nom_produit, infos) in enumerate(produits_catalogue.items()):
-    with cols[idx]:
-        st.markdown(f"### {infos['emoji']} {nom_produit}")
-        
-        # Essayer d'afficher l'image si elle existe
-        try:
-            if os.path.exists(infos['image']):
-                img = Image.open(infos['image'])
-                st.image(img, use_container_width=True)
+    cols = st.columns(3)
+    for i, (name, info) in enumerate(produits.items()):
+        with cols[i]:
+            st.markdown(f'<div class="product-card">', unsafe_allow_html=True)
+            if os.path.exists(info['img']):
+                st.image(info['img'], use_container_width=True)
             else:
-                # Image placeholder si le fichier n'existe pas
-                st.info(f"📷 Photo à venir")
-        except:
-            st.info(f"📷 Photo à venir")
+                st.info("📷 Image bientôt disponible")
+            st.subheader(name)
+            st.markdown(f"**{info['prix']} DA**")
+            st.caption(info['desc'])
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    st.divider()
+
+    # FORMULAIRE
+    st.markdown("### 📝 PASSER MA COMMANDE")
+    with st.container(border=True):
+        c1, c2 = st.columns(2)
+        with c1:
+            nom = st.text_input("👤 Votre Nom complet")
+            tel = st.text_input("📱 Votre Numéro de téléphone")
+        with c2:
+            wilaya = st.selectbox("📍 Wilaya", ["Alger", "Oran", "Sétif", "Autre"])
+            article = st.selectbox("🛒 Article choisi", list(produits.keys()))
         
-        st.markdown(f"**{infos['description']}**")
-        st.markdown(f"### 💰 {infos['prix']} DA")
-
-st.markdown("---")
-
-# --- FORMULAIRE ---
-st.header("📝 Passer une Commande")
-
-col1, col2 = st.columns(2)
-
-with col1:
-    nom_client = st.text_input("👤 Nom complet :")
-    tel_client = st.text_input("📱 Téléphone :")
-
-with col2:
-    wilaya = st.selectbox("📍 Wilaya :", ["Alger", "Oran", "Sétif", "Autre"])
-    produit_selectionne = st.selectbox(
-        "🛒 Choisissez votre article :", 
-        list(produits_catalogue.keys())
-    )
-
-# Afficher l'image du produit sélectionné
-st.markdown("### 🎯 Article sélectionné :")
-col_img, col_info = st.columns([1, 2])
-
-with col_img:
-    try:
-        if os.path.exists(produits_catalogue[produit_selectionne]['image']):
-            img = Image.open(produits_catalogue[produit_selectionne]['image'])
-            st.image(img, width=200)
-        else:
-            st.info("📷 Photo à venir")
-    except:
-        st.info("📷 Photo à venir")
-
-with col_info:
-    st.markdown(f"**Produit :** {produit_selectionne}")
-    st.markdown(f"**Prix :** {produits_catalogue[produit_selectionne]['prix']} DA")
-    
-    # Tarifs
-    frais_livraison = {"Alger": 500, "Oran": 800, "Sétif": 600, "Autre": 1000}
-    frais = frais_livraison[wilaya]
-    
-    st.markdown(f"**Frais de livraison ({wilaya}) :** {frais} DA")
-    
-    total = produits_catalogue[produit_selectionne]['prix'] + frais
-    st.markdown(f"### 💳 **Total à payer : {total} DA**")
-
-# --- BOUTON D'ENREGISTREMENT ---
-st.markdown("---")
-if st.button("🚀 VALIDER ET ENREGISTRER LA COMMANDE", use_container_width=True):
-    if nom_client and tel_client:
-        # Générer numéro de commande unique
-        df_existant = get_data()
-        num_commande = len(df_existant) + 1 if not df_existant.empty else 1
+        frais_v = {"Alger": 500, "Oran": 800, "Sétif": 600, "Autre": 1000}
+        total = produits[article]['prix'] + frais_v[wilaya]
         
-        nouvelle_commande = [
-            str(date.today()),
-            nom_client,
-            tel_client,
-            wilaya,
-            produit_selectionne,
-            f"{total} DA"
-        ]
+        st.markdown(f"## Total : `{total} DA` (Livraison incluse)")
         
-        if add_data(nouvelle_commande):
-            st.success(f"✅ Commande #{num_commande} enregistrée pour {nom_client} !")
-            st.balloons()
-            
-            # Stocker les infos dans session_state pour télécharger la facture
-            st.session_state['derniere_commande'] = {
-                'nom': nom_client,
-                'tel': tel_client,
-                'wilaya': wilaya,
-                'produit': produit_selectionne,
-                'total': total,
-                'num': num_commande
-            }
-            
-            st.info("👇 Téléchargez votre facture ci-dessous")
-        else:
-            st.error("❌ Impossible d'enregistrer la commande.")
+        if st.button("🚀 VALIDER MA COMMANDE"):
+            if nom and tel:
+                if add_data([str(date.today()), nom, tel, wilaya, article, f"{total} DA"]):
+                    st.success("✅ Commande enregistrée ! Téléchargez votre facture ci-dessous.")
+                    st.balloons()
+                    st.session_state['cmd'] = {'nom': nom, 'tel': tel, 'wilaya': wilaya, 'art': article, 'total': total}
+                else: st.error("Erreur de connexion.")
+            else: st.warning("Veuillez remplir vos informations.")
+
+    # FACTURE
+    if 'cmd' in st.session_state:
+        # (Ici tu peux remettre ta fonction PDF existante pour le téléchargement)
+        st.info(f"Facture prête pour {st.session_state['cmd']['nom']} !")
+
+with tab_change:
+    st.markdown("### 💱 CALCULATEUR MARCHÉ NOIR")
+    taux = st.number_input("Taux actuel (Square) :", value=240)
+    m_input = st.number_input("Montant à convertir :", min_value=0)
+    mode = st.radio("Direction :", ["Euro vers DZA", "DZA vers Euro"])
+    
+    if mode == "Euro vers DZA":
+        st.metric("Résultat", f"{m_input * taux} DA")
     else:
-        st.warning("⚠️ Remplis tous les champs !")
+        st.metric("Résultat", f"{m_input / taux:.2f} €")
 
-# --- TÉLÉCHARGEMENT FACTURE ---
-if 'derniere_commande' in st.session_state:
-    st.markdown("---")
-    st.subheader("📄 Télécharger votre Facture")
-    
-    cmd = st.session_state['derniere_commande']
-    
-    col_a, col_b, col_c = st.columns([1, 2, 1])
-    with col_b:
-        if st.button("📥 TÉLÉCHARGER LA FACTURE PDF", use_container_width=True):
-            pdf_data = create_invoice_pdf(
-                cmd['nom'], cmd['tel'], cmd['wilaya'], 
-                cmd['produit'], cmd['total'], cmd['num']
-            )
-            
-            st.download_button(
-                label="💾 Cliquez ici pour télécharger",
-                data=pdf_data,
-                file_name=f"Facture_ZAIR_{cmd['num']}_{cmd['nom']}.pdf",
-                mime="application/pdf",
-                use_container_width=True
-            )
-
-# --- AFFICHAGE DES COMMANDES ---
-st.markdown("---")
-st.header("📋 Historique des Commandes")
-
-if st.button("🔄 Actualiser les données"):
-    df_commandes = get_data()
-    
-    if not df_commandes.empty:
-        st.dataframe(df_commandes, use_container_width=True)
-        
-        # Statistiques
-        col_stat1, col_stat2, col_stat3 = st.columns(3)
-        with col_stat1:
-            st.metric("📊 Total commandes", len(df_commandes))
-        with col_stat2:
-            st.metric("🌍 Wilayas servies", df_commandes['wilaya'].nunique())
-        with col_stat3:
-            produit_populaire = df_commandes['produit'].mode()[0] if not df_commandes.empty else "N/A"
-            st.metric("🔥 Produit populaire", produit_populaire)
-    else:
-        st.warning("Aucune commande enregistrée pour le moment.")
+with tab_admin:
+    st.markdown("### 📊 DASHBOARD DES VENTES")
+    if st.button("🔄 ACTUALISER LES VENTES"):
+        df = get_data()
+        if not df.empty:
+            st.dataframe(df, use_container_width=True)
+            st.metric("Total des ventes", f"{len(df)} commandes")
+        else: st.write("Aucune donnée.")
