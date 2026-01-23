@@ -8,108 +8,121 @@ import qrcode
 from io import BytesIO
 from fpdf import FPDF
 import os
+import urllib.parse
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(page_title="ZAIR LUXE E-COM", layout="wide", page_icon="👑")
+st.set_page_config(page_title="ZAIR LUXE E-COM", layout="wide", page_icon="👟")
 
-# Rappel : N'oublie pas de supprimer la boîte secrète lors de l'envoi du code !
+# ⚠️ Remplace par ton vrai ID de Google Sheet
 SHEET_ID = "1bErvQg4-f2Fga6nRJO8aKYdEOjcC6HMzXa2T7zJLeE0"
 TIKTOK_URL = "https://www.tiktok.com/@zair.product"
+WHATSAPP_NUMBER = "213782473413" # Ton numéro sans le +
 
-# --- 2. DESIGN CSS "FULL BLACK & GOLD" ---
+# --- 2. DESIGN "SNEAK PEEK" (DARK & NEON) ---
 st.markdown("""
     <style>
-    /* Forcer le fond en noir profond */
-    .stApp {
-        background-color: #0E1117;
-        color: #FFFFFF;
-    }
+    /* Fond noir profond */
+    .stApp { background-color: #080a0c !important; color: #ffffff; }
     
-    /* Header Luxe */
+    /* Header Galaxie */
     .header-box {
-        background: linear-gradient(145deg, #000000 0%, #1a1a1a 100%);
-        padding: 40px;
-        border-radius: 20px;
+        background: linear-gradient(135deg, #000000 0%, #1c1f26 100%);
+        padding: 50px;
+        border-radius: 30px;
         text-align: center;
-        border: 2px solid #D4AF37;
-        margin-bottom: 30px;
-        box-shadow: 0 10px 30px rgba(212, 175, 55, 0.1);
+        border: 1px solid #00f2ff;
+        margin-bottom: 40px;
+        box-shadow: 0 0 30px rgba(0, 242, 255, 0.15);
     }
     
-    /* Titres en Or */
-    h1, h2, h3 {
-        color: #D4AF37 !important;
-        font-family: 'Georgia', serif;
-    }
-
-    /* Cartes produits Dark */
+    /* Cartes Produits style Inspiration */
     .product-card {
-        border: 1px solid #333333;
-        border-radius: 15px;
-        padding: 20px;
+        background: #161a21;
+        border-radius: 25px;
+        padding: 25px;
         text-align: center;
-        background-color: #1a1a1a;
-        transition: 0.4s ease;
+        border: 1px solid #2d323d;
+        transition: 0.4s all;
+        margin-bottom: 10px;
     }
     .product-card:hover {
-        transform: scale(1.02);
-        border-color: #D4AF37;
-        box-shadow: 0 0 20px rgba(212, 175, 55, 0.2);
+        border-color: #00f2ff;
+        transform: translateY(-12px);
+        box-shadow: 0 15px 35px rgba(0, 242, 255, 0.2);
     }
     
-    /* Inputs (champs de saisie) */
-    .stTextInput>div>div>input, .stSelectbox>div>div>div {
-        background-color: #262730 !important;
-        color: white !important;
-        border: 1px solid #444 !important;
-    }
+    /* Titres et Prix */
+    h1, h2, h3 { color: #ffffff !important; font-family: 'Inter', sans-serif; font-weight: 800; }
+    .price-tag { color: #00f2ff; font-size: 24px; font-weight: bold; }
 
-    /* Boutons Or */
+    /* Boutons Néon */
     .stButton>button {
-        background: linear-gradient(90deg, #D4AF37 0%, #C5A028 100%) !important;
+        background: linear-gradient(90deg, #00f2ff 0%, #0072ff 100%) !important;
         color: #000000 !important;
         border: none !important;
-        border-radius: 12px;
+        border-radius: 50px !important;
         font-weight: bold;
-        font-size: 18px;
         height: 55px;
-        width: 100%;
-        box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
+        font-size: 16px;
+        letter-spacing: 1px;
+        transition: 0.3s;
     }
     .stButton>button:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 6px 20px rgba(212, 175, 55, 0.5);
+        transform: scale(1.03);
+        box-shadow: 0 0 25px rgba(0, 242, 255, 0.6);
     }
 
     /* Onglets */
-    .stTabs [data-baseweb="tab-list"] {
-        background-color: #0E1117;
-    }
-    .stTabs [data-baseweb="tab"] {
-        color: #888;
-    }
-    .stTabs [aria-selected="true"] {
-        color: #D4AF37 !important;
-        border-bottom-color: #D4AF37 !important;
-    }
+    .stTabs [data-baseweb="tab-list"] { background-color: transparent; }
+    .stTabs [data-baseweb="tab"] { color: #888; font-weight: 600; }
+    .stTabs [aria-selected="true"] { color: #00f2ff !important; border-bottom-color: #00f2ff !important; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. INTERFACE ---
+# --- 3. LOGIQUE GOOGLE SHEETS ---
+@st.cache_resource
+def init_connection():
+    try:
+        credentials = Credentials.from_service_account_info(
+            st.secrets["gcp_service_account"],
+            scopes=["https://www.googleapis.com/auth/spreadsheets"],
+        )
+        return gspread.authorize(credentials)
+    except: return None
+
+def get_data():
+    try:
+        client = init_connection()
+        if client:
+            sheet = client.open_by_key(SHEET_ID).sheet1
+            return pd.DataFrame(sheet.get_all_records())
+        return pd.DataFrame()
+    except: return pd.DataFrame()
+
+def add_data(row):
+    try:
+        client = init_connection()
+        if client:
+            client.open_by_key(SHEET_ID).sheet1.append_row(row)
+            return True
+        return False
+    except: return False
+
+# --- 4. INTERFACE ---
 st.markdown("""
     <div class="header-box">
-        <h1 style="margin: 0;">👑 ZAIR SQUAR LUXE 👑</h1>
-        <p style="color: #D4AF37; font-size: 1.2rem; letter-spacing: 2px;">PREMIUM QUALITY & FAST DELIVERY</p>
+        <h1 style="font-size: 45px; letter-spacing: -1px;">ZAIR LUXE <span style="color:#00f2ff">SNEAKERS</span></h1>
+        <p style="color: #888; font-size: 18px;">L'excellence du Square à portée de clic.</p>
     </div>
 """, unsafe_allow_html=True)
 
-tab_boutique, tab_change, tab_admin = st.tabs(["🛍️ CATALOGUE", "💱 CHANGE", "📊 ADMIN"])
+tab_shop, tab_square, tab_admin = st.tabs(["🛍️ SHOPPING", "💱 CHANGE", "📋 ADMIN"])
 
-with tab_boutique:
+with tab_shop:
     produits = {
-        "Basket Puma": {"prix": 5500, "img": "puma.jpg", "desc": "L'élégance sportive"},
-        "Adidas Square": {"prix": 8500, "img": "adidas.jpg", "desc": "Édition limitée Square"},
-        "TN Squale": {"prix": 12000, "img": "tn.jpg", "desc": "Qualité Or Exceptionnelle"}
+        "Basket Puma": {"prix": 5500, "img": "puma.jpg", "desc": "Design Minimaliste"},
+        "Adidas Square": {"prix": 8500, "img": "adidas.jpg", "desc": "Édition Limitée DZA"},
+        "TN Squale": {"prix": 12000, "img": "tn.jpg", "desc": "Premium Performance"}
     }
     
     cols = st.columns(3)
@@ -119,42 +132,4 @@ with tab_boutique:
             if os.path.exists(info['img']):
                 st.image(info['img'], use_container_width=True)
             else:
-                st.markdown("<div style='height:150px; background:#333; border-radius:10px; padding:20px;'>📷 Photo Premium en cours</div>", unsafe_allow_html=True)
-            st.subheader(name)
-            st.markdown(f"<h2 style='color: #D4AF37;'>{info['prix']} DA</h2>", unsafe_allow_html=True)
-            st.caption(info['desc'])
-            st.markdown('</div>', unsafe_allow_html=True)
-
-    st.markdown("---")
-    
-    # Formulaire de Commande
-    st.markdown("### 📥 RÉSERVER VOTRE ARTICLE")
-    with st.container():
-        c1, c2 = st.columns(2)
-        with c1:
-            nom = st.text_input("Nom complet")
-            tel = st.text_input("Téléphone")
-        with c2:
-            wilaya = st.selectbox("Wilaya de livraison", ["Alger", "Oran", "Sétif", "Autre"])
-            article = st.selectbox("Modèle souhaité", list(produits.keys()))
-        
-        frais_v = {"Alger": 500, "Oran": 800, "Sétif": 600, "Autre": 1000}
-        total = produits[article]['prix'] + frais_v[wilaya]
-        
-        st.markdown(f"<div style='text-align:center; padding:20px;'><h3>Total à payer : <span style='color:#D4AF37'>{total} DA</span></h3></div>", unsafe_allow_html=True)
-        
-        if st.button("🌟 CONFIRMER MA COMMANDE"):
-            if nom and tel:
-                # Code d'ajout Google Sheets ici
-                st.success(f"Félicitations {nom}, votre commande est validée !")
-                st.balloons()
-            else:
-                st.error("Veuillez remplir les informations de contact.")
-
-with tab_change:
-    st.markdown("### 💱 CONVERTISSEUR SQUARE")
-    # ... (Code du convertisseur identique)
-
-with tab_admin:
-    st.markdown("### 📋 SUIVI DES VENTES")
-    # ... (Code admin identique)
+                st.markdown("<div
